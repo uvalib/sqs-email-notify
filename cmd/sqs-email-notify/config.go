@@ -8,17 +8,24 @@ import (
 
 // ServiceConfig defines all of the service configuration parameters
 type ServiceConfig struct {
-	InQueueName    string // SQS queue name for inbound documents
-	OutQueueName   string // SQS queue name for outbound documents
-	CacheQueueName string // SQS queue name for cache documents (typically records go to the cache)
-	PollTimeOut    int64  // the SQS queue timeout (in seconds)
-
-	DataSourceName    string // the name to associate the data with. Each record has metadata showing this value
+	InQueueName       string // SQS queue name to monitor for message
 	MessageBucketName string // the bucket to use for large messages
-	DownloadDir       string // the S3 file download directory (local)
+	PollTimeOut       int64  // the SQS queue timeout (in seconds)
+	PurgeMessages     bool   // do we purge processed messages or not
 
-	WorkerQueueSize int // the inbound message queue size to feed the workers
-	Workers         int // the number of worker processes
+	WaitTime int    // the check wait time (in minutes)
+	TmpDir   string // the temporary directory (local)
+
+	SMTPHost string // SMTP hostname
+	SMTPPort int    // SMTP port number
+	SMTPUser string // SMTP username
+	SMTPPass string // SMTP password
+
+	EmailSender     string // the email sender
+	EmailRecipient  string // the email recipient
+	EmailTemplate   string // the email template, run through the template engine
+	EmailIdLimit    int    // the maximum number of ID's to list in the email (create attachment if exceeded)
+	EmailAttachName string // the name of the file of ID's to attach
 }
 
 func envWithDefault(env string, defaultValue string) string {
@@ -62,35 +69,57 @@ func envToInt(env string) int {
 	return n
 }
 
+func envToBool(env string) bool {
+
+	str := ensureSetAndNonEmpty(env)
+	b, err := strconv.ParseBool(str)
+	fatalIfError(err)
+	return b
+}
+
 // LoadConfiguration will load the service configuration from env/cmdline
 // and return a pointer to it. Any failures are fatal.
 func LoadConfiguration() *ServiceConfig {
 
 	var cfg ServiceConfig
 
-	cfg.InQueueName = ensureSetAndNonEmpty("SQS_JSON_INGEST_IN_QUEUE")
-	cfg.OutQueueName = ensureSetAndNonEmpty("SQS_JSON_INGEST_OUT_QUEUE")
-	cfg.CacheQueueName = envWithDefault("SQS_JSON_INGEST_CACHE_QUEUE", "")
-	cfg.PollTimeOut = int64(envToInt("SQS_JSON_INGEST_QUEUE_POLL_TIMEOUT"))
-	cfg.DataSourceName = ensureSetAndNonEmpty("SQS_JSON_INGEST_DATA_SOURCE")
+	cfg.InQueueName = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_IN_QUEUE")
 	cfg.MessageBucketName = ensureSetAndNonEmpty("SQS_MESSAGE_BUCKET")
-	cfg.DownloadDir = ensureSetAndNonEmpty("SQS_JSON_INGEST_DOWNLOAD_DIR")
-	cfg.WorkerQueueSize = envToInt("SQS_JSON_INGEST_WORK_QUEUE_SIZE")
-	cfg.Workers = envToInt("SQS_JSON_INGEST_WORKERS")
+	cfg.PollTimeOut = int64(envToInt("SQS_EMAIL_NOTIFY_QUEUE_POLL_TIMEOUT"))
+	cfg.PurgeMessages = envToBool("SQS_EMAIL_NOTIFY_PURGE_MESSAGES")
 
-	log.Printf("[CONFIG] InQueueName          = [%s]", cfg.InQueueName)
-	log.Printf("[CONFIG] OutQueueName         = [%s]", cfg.OutQueueName)
-	log.Printf("[CONFIG] CacheQueueName       = [%s]", cfg.CacheQueueName)
-	log.Printf("[CONFIG] PollTimeOut          = [%d]", cfg.PollTimeOut)
-	log.Printf("[CONFIG] DataSourceName       = [%s]", cfg.DataSourceName)
-	log.Printf("[CONFIG] MessageBucketName    = [%s]", cfg.MessageBucketName)
-	log.Printf("[CONFIG] DownloadDir          = [%s]", cfg.DownloadDir)
-	log.Printf("[CONFIG] WorkerQueueSize      = [%d]", cfg.WorkerQueueSize)
-	log.Printf("[CONFIG] Workers              = [%d]", cfg.Workers)
+	cfg.WaitTime = envToInt("SQS_EMAIL_NOTIFY_WAIT_TIME")
+	cfg.TmpDir = envWithDefault("SQS_EMAIL_NOTIFY_TMP_DIR", "/tmp")
 
-	if cfg.CacheQueueName == "" {
-		log.Printf("INFO: cache queue name is blank, record caching is DISABLED!!")
-	}
+	cfg.SMTPHost = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_SMTP_HOST")
+	cfg.SMTPPort = envToInt("SQS_EMAIL_NOTIFY_SMTP_PORT")
+	cfg.SMTPUser = ensureSet("SQS_EMAIL_NOTIFY_SMTP_USER")
+	cfg.SMTPPass = ensureSet("SQS_EMAIL_NOTIFY_SMTP_PASSWORD")
+
+	cfg.EmailSender = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_SENDER")
+	cfg.EmailRecipient = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_RECIPIENT")
+	cfg.EmailTemplate = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_TEMPLATE")
+	cfg.EmailIdLimit = envToInt("SQS_EMAIL_NOTIFY_EMAIL_ID_LIMIT")
+	cfg.EmailAttachName = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_ATTACH_NAME")
+
+	log.Printf("[CONFIG] InQueueName       = [%s]", cfg.InQueueName)
+	log.Printf("[CONFIG] MessageBucketName = [%s]", cfg.MessageBucketName)
+	log.Printf("[CONFIG] PollTimeOut       = [%d]", cfg.PollTimeOut)
+	log.Printf("[CONFIG] PurgeMessages     = [%t]", cfg.PurgeMessages)
+
+	log.Printf("[CONFIG] WaitTime          = [%d]", cfg.WaitTime)
+	log.Printf("[CONFIG] TmpDir            = [%s]", cfg.TmpDir)
+
+	log.Printf("[CONFIG] SMTPHost          = [%s]", cfg.SMTPHost)
+	log.Printf("[CONFIG] SMTPPort          = [%d]", cfg.SMTPPort)
+	log.Printf("[CONFIG] SMTPUser          = [%s]", cfg.SMTPUser)
+	log.Printf("[CONFIG] SMTPPass          = [%s]", cfg.SMTPPass)
+
+	log.Printf("[CONFIG] EmailSender       = [%s]", cfg.EmailSender)
+	log.Printf("[CONFIG] EmailRecipient    = [%s]", cfg.EmailRecipient)
+	log.Printf("[CONFIG] EmailTemplate     = [%s]", cfg.EmailTemplate)
+	log.Printf("[CONFIG] EmailIdLimit      = [%d]", cfg.EmailIdLimit)
+	log.Printf("[CONFIG] EmailAttachName   = [%s]", cfg.EmailAttachName)
 
 	return &cfg
 }

@@ -1,19 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"time"
 
-	"github.com/antchfx/xmlquery"
 	"github.com/uvalib/virgo4-sqs-sdk/awssqs"
 )
 
-type NameTuple struct {
-	LocalName  string
-	RemoteName string
+type MessageTuple struct {
+	id            string // message ID
+	FirstSent     uint64 // first sent
+	FirstReceived uint64 // first received
 }
 
 //
@@ -34,157 +32,63 @@ func main() {
 	inQueueHandle, err := aws.QueueHandle(cfg.InQueueName)
 	fatalIfError(err)
 
-	outQueueHandle, err := aws.QueueHandle(cfg.OutQueueName)
-	fatalIfError(err)
-
-	var cacheQueueHandle awssqs.QueueHandle
-	if cfg.CacheQueueName != "" {
-		cacheQueueHandle, err = aws.QueueHandle(cfg.CacheQueueName)
-		fatalIfError(err)
-	}
-
-	// create the record channel
-	recordsChan := make(chan Record, cfg.WorkerQueueSize)
-
-	// disable the cache feature
-	xmlquery.DisableSelectorCache = true
-
-	// start workers here
-	for w := 1; w <= cfg.Workers; w++ {
-		go worker(w, *cfg, aws, outQueueHandle, cacheQueueHandle, recordsChan)
-	}
-
+	// our list of unprocessed messages
+	var messageList []MessageTuple
 	for {
-		// top of our processing loop
-		err = nil
-
-		// notification that there is one or more new ingest files to be processed
-		inbound, receiptHandle, e := getInboundNotification(*cfg, aws, inQueueHandle)
+		// are there any messages to be processed
+		count, e := getQueueMessageCount(aws, cfg.InQueueName)
 		fatalIfError(e)
+		if count == 0 {
+			log.Printf("INFO: queue %s contains no messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
+			time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)
+			continue
+		}
 
-		// download each file and validate it
-		fileSets := make([]NameTuple, 0)
-		for _, f := range inbound {
+		// we know we have at least count messages
+		for {
 
-			// save the remote name, we will need it later
-			file := NameTuple{
-				RemoteName: fmt.Sprintf("%s/%s", f.SourceBucket, f.SourceKey),
-			}
+			// wait for a batch of messages
+			messages, _ := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
+			//fatalIfError(err)
 
-			// VIRGONEW-2419
-			if f.ObjectSize == 0 {
-				log.Printf("INFO: notification is reporting %s is ZERO length, ignoring", file.RemoteName)
-				continue
-			}
+			// did we receive any?
+			sz := len(messages)
+			if sz != 0 {
 
-			// download the file
-			file.LocalName, e = s3download(cfg.DownloadDir, f.SourceBucket, f.SourceKey, f.ObjectSize)
-			fatalIfError(e)
+				// extract the ID from each message
+				for ix := range messages {
+					id, found := messages[ix].GetAttribute(awssqs.AttributeKeyRecordId)
+					if found == true {
+						messageList = append(messageList, MessageTuple{id, messages[ix].FirstSent, messages[ix].FirstReceived})
+					}
+				}
 
-			// update our list of files to be processed
-			fileSets = append(fileSets, file)
+				// should we delete these messages (maybe not for testing)
+				if cfg.PurgeMessages == true {
+					// delete the messages, ignore normal failures as we will get them next time
+					_, err := aws.BatchMessageDelete(inQueueHandle, messages)
+					if err != nil && err != awssqs.ErrOneOrMoreOperationsUnsuccessful {
+						fatalIfError(err)
+					}
+				}
 
-			log.Printf("INFO: validating %s (%s)", file.RemoteName, file.LocalName)
-
-			// create a new loader
-			loader, e := NewRecordLoader(file.LocalName)
-			fatalIfError(e)
-
-			// validate the file
-			e = loader.Validate()
-			loader.Done()
-			if e == nil {
-				log.Printf("INFO: %s (%s) appears to be OK, ready for ingest", file.RemoteName, file.LocalName)
 			} else {
-				log.Printf("ERROR: %s (%s) appears to be invalid, ignoring it (%s)", file.RemoteName, file.LocalName, e.Error())
-				err = e
+				log.Printf("INFO: no more messages available")
 				break
 			}
 		}
 
-		// one of the files was invalid, we need to ignore the entire batch and delete the local files
-		if err != nil {
-			for _, f := range fileSets {
-				log.Printf("INFO: removing invalid file %s", f.LocalName)
-				e := os.Remove(f.LocalName)
-				fatalIfError(e)
+		// we now have a list of ID's to process...
+		pending := len(messageList)
+		if pending != 0 {
+
+			for ix := range messageList {
+				log.Printf("INFO: found [%s] (first sent %d)", messageList[ix].id, messageList[ix].FirstSent)
 			}
 
-			// go back to waiting for the next notification
-			continue
-		}
-
-		// if we got here without an error then all the files can be processed... we can delete the inbound message
-		// because it has been processed
-
-		delMessages := make([]awssqs.Message, 0, 1)
-		delMessages = append(delMessages, awssqs.Message{ReceiptHandle: receiptHandle})
-		opStatus, err := aws.BatchMessageDelete(inQueueHandle, delMessages)
-		if err != nil {
-			if err != awssqs.ErrOneOrMoreOperationsUnsuccessful {
-				fatalIfError(err)
-			}
-		}
-
-		// check the operation results
-		for ix, op := range opStatus {
-			if op == false {
-				log.Printf("ERROR: message %d failed to delete", ix)
-			}
-		}
-
-		// now we can process each of the viable inbound files
-		for _, file := range fileSets {
-
-			start := time.Now()
-			log.Printf("INFO: processing %s (%s)", file.RemoteName, file.LocalName)
-
-			loader, err := NewRecordLoader(file.LocalName)
-			// fatal fail here because we have already validated the file and believe it to be correct so this
-			// is some other sort of failure
-			fatalIfError(err)
-
-			// get the first record
-			count := 0
-			rec, err := loader.First()
-			if err != nil {
-				// are we done
-				if err == io.EOF {
-					log.Printf("WARNING: EOF on first read, unexpected empty file")
-				} else {
-					// fatal fail here because we have already validated the file and believe it to be correct so this
-					// is some other sort of failure
-					log.Fatal(err)
-				}
-			}
-
-			// we can get here with an error if the first read yields EOF
-			if err == nil {
-				for {
-					count++
-					recordsChan <- rec
-
-					rec, err = loader.Next()
-					if err != nil {
-						if err == io.EOF {
-							// this is expected, break out of the processing loop
-							break
-						}
-						// fatal fail here because we have already validated the file and believe it to be correct so this
-						// is some other sort of failure
-						log.Fatal(err)
-					}
-				}
-			}
-
-			loader.Done()
-			duration := time.Since(start)
-			log.Printf("INFO: done processing %s (%s). %d records (%0.2f tps)", file.RemoteName, file.LocalName, count, float64(count)/duration.Seconds())
-
-			// file has been ingested, remove it
-			log.Printf("INFO: removing processed file %s", file.LocalName)
-			err = os.Remove(file.LocalName)
-			fatalIfError(err)
+			log.Printf("INFO: processing complete (%d messages), sleeping for %d minutes", pending, cfg.WaitTime)
+			messageList = messageList[:0]
+			time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)
 		}
 	}
 }
