@@ -26,6 +26,7 @@ type ServiceConfig struct {
 	EmailTemplate   string // the email template, run through the template engine
 	EmailIdLimit    int    // the maximum number of ID's to list in the email (create attachment if exceeded)
 	EmailAttachName string // the name of the file of ID's to attach
+	SendEmail       bool   // do we send or just log
 }
 
 func envWithDefault(env string, defaultValue string) string {
@@ -101,6 +102,7 @@ func LoadConfiguration() *ServiceConfig {
 	cfg.EmailTemplate = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_TEMPLATE")
 	cfg.EmailIdLimit = envToInt("SQS_EMAIL_NOTIFY_EMAIL_ID_LIMIT")
 	cfg.EmailAttachName = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_ATTACH_NAME")
+	cfg.SendEmail = envToBool("SQS_EMAIL_NOTIFY_EMAIL_SEND")
 
 	log.Printf("[CONFIG] InQueueName       = [%s]", cfg.InQueueName)
 	log.Printf("[CONFIG] MessageBucketName = [%s]", cfg.MessageBucketName)
@@ -120,6 +122,7 @@ func LoadConfiguration() *ServiceConfig {
 	log.Printf("[CONFIG] EmailTemplate     = [%s]", cfg.EmailTemplate)
 	log.Printf("[CONFIG] EmailIdLimit      = [%d]", cfg.EmailIdLimit)
 	log.Printf("[CONFIG] EmailAttachName   = [%s]", cfg.EmailAttachName)
+	log.Printf("[CONFIG] SendEmail         = [%t]", cfg.SendEmail)
 
 	return &cfg
 }

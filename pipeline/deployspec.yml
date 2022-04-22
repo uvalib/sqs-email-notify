@@ -23,10 +23,7 @@ phases:
 
   build:
     commands:
-      - cd $CODEBUILD_SRC_DIR/terraform-infrastructure/mandala/ecs-tasks/staging/mandala-kmassets-xxx-notify
-      - terraform init -no-color
-      - terraform apply -no-color -auto-approve
-      - cd $CODEBUILD_SRC_DIR/terraform-infrastructure/mandala/ecs-tasks/staging/mandala-kmterms-xxx-notify
+      - cd $CODEBUILD_SRC_DIR/terraform-infrastructure/mandala/ecs-tasks/staging/mandala-kmterms-solr-email-notify
       - terraform init -no-color
       - terraform apply -no-color -auto-approve
 

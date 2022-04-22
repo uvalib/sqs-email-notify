@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -49,7 +50,7 @@ func main() {
 
 			// wait for a batch of messages
 			messages, _ := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
-			//fatalIfError(err)
+			//fatalIfError(err) // TEMP
 
 			// did we receive any?
 			sz := len(messages)
@@ -81,6 +82,11 @@ func main() {
 		// we now have a list of ID's to process...
 		pending := len(messageList)
 		if pending != 0 {
+
+			// if we need to create and attach a file to the email
+			if pending > cfg.EmailIdLimit {
+				createZipfile(fmt.Sprintf("%s/%s", cfg.TmpDir, cfg.EmailAttachName), messageList)
+			}
 
 			for ix := range messageList {
 				log.Printf("INFO: found [%s] (first sent %d)", messageList[ix].id, messageList[ix].FirstSent)
