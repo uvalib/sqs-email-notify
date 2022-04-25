@@ -88,9 +88,8 @@ func main() {
 				createZipfile(fmt.Sprintf("%s/%s", cfg.TmpDir, cfg.EmailAttachName), messageList)
 			}
 
-			for ix := range messageList {
-				log.Printf("INFO: found [%s] (first sent %d)", messageList[ix].id, messageList[ix].FirstSent)
-			}
+			// create and send the email
+			sendNotificationEmail(cfg, messageList)
 
 			log.Printf("INFO: processing complete (%d messages), sleeping for %d minutes", pending, cfg.WaitTime)
 			messageList = messageList[:0]

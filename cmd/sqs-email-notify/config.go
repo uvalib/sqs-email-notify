@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"text/template"
 )
 
 // ServiceConfig defines all of the service configuration parameters
@@ -23,6 +24,8 @@ type ServiceConfig struct {
 
 	EmailSender     string // the email sender
 	EmailRecipient  string // the email recipient
+	EmailCC         string // the email CC
+	EmailSubject    string // the email subject
 	EmailTemplate   string // the email template, run through the template engine
 	EmailIdLimit    int    // the maximum number of ID's to list in the email (create attachment if exceeded)
 	EmailAttachName string // the name of the file of ID's to attach
@@ -99,6 +102,8 @@ func LoadConfiguration() *ServiceConfig {
 
 	cfg.EmailSender = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_SENDER")
 	cfg.EmailRecipient = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_RECIPIENT")
+	cfg.EmailCC = ensureSet("SQS_EMAIL_NOTIFY_EMAIL_CC")
+	cfg.EmailSubject = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_SUBJECT")
 	cfg.EmailTemplate = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_TEMPLATE")
 	cfg.EmailIdLimit = envToInt("SQS_EMAIL_NOTIFY_EMAIL_ID_LIMIT")
 	cfg.EmailAttachName = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_ATTACH_NAME")
@@ -119,10 +124,16 @@ func LoadConfiguration() *ServiceConfig {
 
 	log.Printf("[CONFIG] EmailSender       = [%s]", cfg.EmailSender)
 	log.Printf("[CONFIG] EmailRecipient    = [%s]", cfg.EmailRecipient)
+	log.Printf("[CONFIG] EmailCC           = [%s]", cfg.EmailCC)
+	log.Printf("[CONFIG] EmailSubject      = [%s]", cfg.EmailSubject)
 	log.Printf("[CONFIG] EmailTemplate     = [%s]", cfg.EmailTemplate)
 	log.Printf("[CONFIG] EmailIdLimit      = [%d]", cfg.EmailIdLimit)
 	log.Printf("[CONFIG] EmailAttachName   = [%s]", cfg.EmailAttachName)
 	log.Printf("[CONFIG] SendEmail         = [%t]", cfg.SendEmail)
+
+	// validate the template here
+	_, err := template.New("email").Parse(cfg.EmailTemplate)
+	fatalIfError(err)
 
 	return &cfg
 }
