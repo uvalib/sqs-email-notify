@@ -60,7 +60,7 @@ func renderEmailBody(cfg *ServiceConfig, messageList []MessageTuple) (string, er
 	type EmailAttributes struct {
 		Recipient   string
 		FailedCount int
-		Body        string
+		Details     string
 	}
 
 	// parse the template
@@ -74,14 +74,15 @@ func renderEmailBody(cfg *ServiceConfig, messageList []MessageTuple) (string, er
 	// do we need to include a list of ID's in the message body
 	if attribs.FailedCount <= cfg.EmailIdLimit {
 		var bodyBuffer bytes.Buffer
+		bodyBuffer.WriteString("Problems encountered with the following item(s):\n\n")
 		for ix := range messageList {
 			ts := time.Unix(int64(messageList[ix].FirstSent/1000), 0) // cos our format is epoch plus milliseconds
 			s := fmt.Sprintf("   Id: %s (first sent: %s)\n", messageList[ix].id, ts)
 			bodyBuffer.WriteString(s)
 		}
-		attribs.Body = bodyBuffer.String()
+		attribs.Details = bodyBuffer.String()
 	} else {
-		attribs.Body = "Please see the attached file for more details."
+		attribs.Details = "Please see the attached file for more details.\n"
 	}
 
 	var renderedBuffer bytes.Buffer

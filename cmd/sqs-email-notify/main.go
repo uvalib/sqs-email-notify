@@ -59,9 +59,10 @@ func main() {
 				// extract the ID from each message
 				for ix := range messages {
 					id, found := messages[ix].GetAttribute(awssqs.AttributeKeyRecordId)
-					if found == true {
-						messageList = append(messageList, MessageTuple{id, messages[ix].FirstSent, messages[ix].FirstReceived})
+					if found == false {
+						id = "unknown" // should not typically happen
 					}
+					messageList = append(messageList, MessageTuple{id, messages[ix].FirstSent, messages[ix].FirstReceived})
 				}
 
 				// should we delete these messages (maybe not for testing)
