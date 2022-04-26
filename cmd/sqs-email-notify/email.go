@@ -107,11 +107,11 @@ func dialAndSend(dialer gomail.Dialer, mail *gomail.Message) error {
 
 		// break when tried too many times
 		if currentCount >= retryCount {
-			log.Printf("ERROR email send failed with error (%s), giving up", err)
+			log.Printf("ERROR: email send failed with error (%s), giving up", err)
 			return err
 		}
 
-		log.Printf("WARNING email send failed with error (%s), retrying...", err)
+		log.Printf("WARNING: email send failed with error (%s), retrying...", err)
 
 		// sleep for a bit before retrying
 		time.Sleep(retrySleepTime)
