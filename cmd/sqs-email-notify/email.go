@@ -40,18 +40,17 @@ func sendNotificationEmail(cfg *ServiceConfig, messageList []MessageTuple) {
 		mail.Attach(fmt.Sprintf("%s/%s", cfg.TmpDir, cfg.EmailAttachName))
 	}
 
+	var dialer gomail.Dialer
 	log.Printf("INFO: sending '%s' email to '%s'", cfg.EmailSubject, cfg.EmailRecipient)
 	if cfg.SMTPPass != "" {
 		log.Printf("INFO: sending email with auth")
-		dialer := gomail.Dialer{Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUser, Password: cfg.SMTPPass}
-		dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-		err = dialer.DialAndSend(mail)
+		dialer = gomail.Dialer{Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUser, Password: cfg.SMTPPass}
 	} else {
 		log.Printf("INFO: sending email with no auth")
-		dialer := gomail.Dialer{Host: cfg.SMTPHost, Port: cfg.SMTPPort}
-		dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-		err = dialer.DialAndSend(mail)
+		dialer = gomail.Dialer{Host: cfg.SMTPHost, Port: cfg.SMTPPort}
 	}
+	dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	err = dialAndSend(dialer, mail)
 	fatalIfError(err)
 }
 
@@ -92,6 +91,31 @@ func renderEmailBody(cfg *ServiceConfig, messageList []MessageTuple) (string, er
 	}
 
 	return renderedBuffer.String(), nil
+}
+
+func dialAndSend(dialer gomail.Dialer, mail *gomail.Message) error {
+
+	retryCount := 3
+	retrySleepTime := 1 * time.Second
+	currentCount := 0
+	for {
+		err := dialer.DialAndSend(mail)
+		if err == nil {
+			return nil
+		}
+		currentCount++
+
+		// break when tried too many times
+		if currentCount >= retryCount {
+			log.Printf("ERROR email send failed with error (%s), giving up", err)
+			return err
+		}
+
+		log.Printf("WARNING email send failed with error (%s), retrying...", err)
+
+		// sleep for a bit before retrying
+		time.Sleep(retrySleepTime)
+	}
 }
 
 //
