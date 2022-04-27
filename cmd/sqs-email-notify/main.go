@@ -15,6 +15,11 @@ type MessageTuple struct {
 	FirstReceived uint64 // first received
 }
 
+func (mt MessageTuple) ToString() string {
+	ts := time.Unix(int64(mt.FirstSent/1000), 0) // cos our format is epoch plus milliseconds
+	return fmt.Sprintf("Id: %s (sent: %s)\n", mt.id, ts)
+}
+
 //
 // main entry point
 //

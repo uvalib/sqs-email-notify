@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"text/template"
 )
 
@@ -22,14 +23,14 @@ type ServiceConfig struct {
 	SMTPUser string // SMTP username
 	SMTPPass string // SMTP password
 
-	EmailSender     string // the email sender
-	EmailRecipient  string // the email recipient
-	EmailCC         string // the email CC
-	EmailSubject    string // the email subject
-	EmailTemplate   string // the email template, run through the template engine
-	EmailIdLimit    int    // the maximum number of ID's to list in the email (create attachment if exceeded)
-	EmailAttachName string // the name of the file of ID's to attach
-	SendEmail       bool   // do we send or just log
+	EmailSender     string   // the email sender
+	EmailRecipient  string   // the email recipient
+	EmailCC         []string // the email CC list
+	EmailSubject    string   // the email subject
+	EmailTemplate   string   // the email template, run through the template engine
+	EmailIdLimit    int      // the maximum number of ID's to list in the email (create attachment if exceeded)
+	EmailAttachName string   // the name of the file of ID's to attach
+	SendEmail       bool     // do we send or just log
 }
 
 func envWithDefault(env string, defaultValue string) string {
@@ -102,7 +103,7 @@ func LoadConfiguration() *ServiceConfig {
 
 	cfg.EmailSender = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_SENDER")
 	cfg.EmailRecipient = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_RECIPIENT")
-	cfg.EmailCC = ensureSet("SQS_EMAIL_NOTIFY_EMAIL_CC")
+	cfg.EmailCC = strings.Split(ensureSet("SQS_EMAIL_NOTIFY_EMAIL_CC"), ",")
 	cfg.EmailSubject = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_SUBJECT")
 	cfg.EmailTemplate = ensureSetAndNonEmpty("SQS_EMAIL_NOTIFY_EMAIL_TEMPLATE")
 	cfg.EmailIdLimit = envToInt("SQS_EMAIL_NOTIFY_EMAIL_ID_LIMIT")
@@ -124,7 +125,7 @@ func LoadConfiguration() *ServiceConfig {
 
 	log.Printf("[CONFIG] EmailSender       = [%s]", cfg.EmailSender)
 	log.Printf("[CONFIG] EmailRecipient    = [%s]", cfg.EmailRecipient)
-	log.Printf("[CONFIG] EmailCC           = [%s]", cfg.EmailCC)
+	log.Printf("[CONFIG] EmailCC           = [%s]", strings.Join(cfg.EmailCC, ","))
 	log.Printf("[CONFIG] EmailSubject      = [%s]", cfg.EmailSubject)
 	log.Printf("[CONFIG] EmailTemplate     = [%s]", cfg.EmailTemplate)
 	log.Printf("[CONFIG] EmailIdLimit      = [%d]", cfg.EmailIdLimit)

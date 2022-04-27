@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
 )
 
 func createZipfile(filename string, messageList []MessageTuple) {
@@ -22,9 +21,7 @@ func createZipfile(filename string, messageList []MessageTuple) {
 	fatalIfError(err)
 	w := bufio.NewWriter(unzipped)
 	for ix := range messageList {
-		ts := time.Unix(int64(messageList[ix].FirstSent/1000), 0) // cos our format is epoch plus milliseconds
-		s := fmt.Sprintf("Id: %s (first sent: %s)\n", messageList[ix].id, ts)
-		_, err = w.WriteString(s)
+		_, err = w.WriteString(fmt.Sprintf("%s\n", messageList[ix].ToString()))
 		fatalIfError(err)
 	}
 	w.Flush()

@@ -19,8 +19,8 @@ func sendNotificationEmail(cfg *ServiceConfig, messageList []MessageTuple) {
 	mail.SetHeader("To", cfg.EmailRecipient)
 	mail.SetHeader("From", cfg.EmailSender)
 
-	if cfg.EmailCC != "" {
-		mail.SetHeader("Cc", cfg.EmailCC)
+	if cfg.EmailCC[0] != "" {
+		mail.SetHeader("Cc", cfg.EmailCC...)
 	}
 	// render the email body
 	body, err := renderEmailBody(cfg, messageList)
@@ -75,9 +75,7 @@ func renderEmailBody(cfg *ServiceConfig, messageList []MessageTuple) (string, er
 		var bodyBuffer bytes.Buffer
 		bodyBuffer.WriteString("Problems encountered with the following item(s):\n\n")
 		for ix := range messageList {
-			ts := time.Unix(int64(messageList[ix].FirstSent/1000), 0) // cos our format is epoch plus milliseconds
-			s := fmt.Sprintf("   Id: %s (first sent: %s)\n", messageList[ix].id, ts)
-			bodyBuffer.WriteString(s)
+			bodyBuffer.WriteString(fmt.Sprintf("   %s\n", messageList[ix].ToString()))
 		}
 		attribs.Details = bodyBuffer.String()
 	} else {
