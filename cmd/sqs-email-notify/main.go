@@ -55,11 +55,13 @@ func main() {
 
 				// wait for a batch of messages
 				messages, err := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
-				if strings.HasPrefix(err.Error(), s3.ErrCodeNoSuchKey) {
-					// nothing to see here... this is a case of a large message with a missing S3 payload...
-					// we will ignore this and attempt to process the remaining (good) message(s)
-				} else {
-					fatalIfError(err)
+				if err != nil {
+					if strings.HasPrefix(err.Error(), s3.ErrCodeNoSuchKey) {
+						// nothing to see here... this is a case of a large message with a missing S3 payload...
+						// we will ignore this and attempt to process the remaining (good) message(s)
+					} else {
+						fatalIfError(err)
+					}
 				}
 
 				// did we receive any?
