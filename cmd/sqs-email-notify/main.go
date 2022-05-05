@@ -17,7 +17,7 @@ type MessageTuple struct {
 
 func (mt MessageTuple) ToString() string {
 	ts := time.Unix(int64(mt.FirstSent/1000), 0) // cos our format is epoch plus milliseconds
-	return fmt.Sprintf("Id: %s (sent: %s)\n", mt.id, ts)
+	return fmt.Sprintf("Id: %s (sent: %s)", mt.id, ts)
 }
 
 //
