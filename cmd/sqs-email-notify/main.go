@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/uvalib/virgo4-sqs-sdk/awssqs"
@@ -44,63 +46,72 @@ func main() {
 		// are there any messages to be processed
 		count, e := getQueueMessageCount(aws, cfg.InQueueName)
 		fatalIfError(e)
-		if count == 0 {
-			log.Printf("INFO: queue %s contains no messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
-			time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)
-			continue
-		}
 
-		// we know we have at least count messages
-		for {
+		// do we have any messages to process
+		if count != 0 {
 
-			// wait for a batch of messages
-			messages, err := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
-			fatalIfError(err)
+			// we know we have at least count messages
+			for {
 
-			// did we receive any?
-			sz := len(messages)
-			if sz != 0 {
-
-				// extract the ID from each message
-				for ix := range messages {
-					id, found := messages[ix].GetAttribute(awssqs.AttributeKeyRecordId)
-					if found == false {
-						id = "unknown" // should not typically happen
-					}
-					messageList = append(messageList, MessageTuple{id, messages[ix].FirstSent, messages[ix].FirstReceived})
+				// wait for a batch of messages
+				messages, err := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
+				if strings.HasPrefix(err.Error(), s3.ErrCodeNoSuchKey) {
+					// nothing to see here... this is a case of a large message with a missing S3 payload...
+					// we will ignore this and attempt to process the remaining (good) message(s)
+				} else {
+					fatalIfError(err)
 				}
 
-				// should we delete these messages (maybe not for testing)
-				if cfg.PurgeMessages == true {
-					// delete the messages, ignore normal failures as we will get them next time
-					_, err := aws.BatchMessageDelete(inQueueHandle, messages)
-					if err != nil && err != awssqs.ErrOneOrMoreOperationsUnsuccessful {
-						fatalIfError(err)
+				// did we receive any?
+				sz := len(messages)
+				if sz != 0 {
+
+					// extract the ID from each message
+					for ix := range messages {
+						id, found := messages[ix].GetAttribute(awssqs.AttributeKeyRecordId)
+						if found == false {
+							id = "unknown" // should not typically happen
+						}
+						messageList = append(messageList, MessageTuple{id, messages[ix].FirstSent, messages[ix].FirstReceived})
 					}
+
+					// should we delete these messages (maybe not for testing)
+					if cfg.PurgeMessages == true {
+						// delete the messages, ignore normal failures as we will get them next time
+						_, err := aws.BatchMessageDelete(inQueueHandle, messages)
+						if err != nil && err != awssqs.ErrOneOrMoreOperationsUnsuccessful {
+							fatalIfError(err)
+						}
+					}
+
+				} else {
+					log.Printf("INFO: no more messages available")
+					break
+				}
+			}
+
+			// we now have a list of ID's to process...
+			pending := len(messageList)
+			if pending != 0 {
+
+				// if we need to create and attach a file to the email
+				if pending > cfg.EmailIdLimit {
+					createZipfile(fmt.Sprintf("%s/%s", cfg.TmpDir, cfg.EmailAttachName), messageList)
 				}
 
+				// create and send the email
+				sendNotificationEmail(cfg, messageList)
+
+				log.Printf("INFO: processing complete (%d messages), sleeping for %d minutes", pending, cfg.WaitTime)
+				messageList = messageList[:0]
 			} else {
-				log.Printf("INFO: no more messages available")
-				break
+				log.Printf("INFO: queue %s contains no viable messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
 			}
+		} else {
+			log.Printf("INFO: queue %s contains no messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
 		}
 
-		// we now have a list of ID's to process...
-		pending := len(messageList)
-		if pending != 0 {
-
-			// if we need to create and attach a file to the email
-			if pending > cfg.EmailIdLimit {
-				createZipfile(fmt.Sprintf("%s/%s", cfg.TmpDir, cfg.EmailAttachName), messageList)
-			}
-
-			// create and send the email
-			sendNotificationEmail(cfg, messageList)
-
-			log.Printf("INFO: processing complete (%d messages), sleeping for %d minutes", pending, cfg.WaitTime)
-			messageList = messageList[:0]
-			time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)
-		}
+		time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)
 	}
 }
 
