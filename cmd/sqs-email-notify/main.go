@@ -54,7 +54,7 @@ func main() {
 		for {
 
 			// wait for a batch of messages
-			messages, _ := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
+			messages, err := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
 			fatalIfError(err)
 
 			// did we receive any?
