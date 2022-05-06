@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/uvalib/virgo4-sqs-sdk/awssqs"
@@ -54,15 +52,10 @@ func main() {
 			for {
 
 				// wait for a batch of messages
-				messages, err := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
-				if err != nil {
-					if strings.HasPrefix(err.Error(), s3.ErrCodeNoSuchKey) {
-						// nothing to see here... this is a case of a large message with a missing S3 payload...
-						// we will ignore this and attempt to process the remaining (good) message(s)
-					} else {
-						fatalIfError(err)
-					}
-				}
+				// we ignore errors in this case cos we are processing from the "unprocessed" queue so some messages
+				// may be broken
+				messages, _ := aws.BatchMessageGet(inQueueHandle, awssqs.MAX_SQS_BLOCK_COUNT, time.Duration(cfg.PollTimeOut)*time.Second)
+				//fatalIfError(err)
 
 				// did we receive any?
 				sz := len(messages)
@@ -92,7 +85,7 @@ func main() {
 				}
 			}
 
-			// we now have a list of ID's to process...
+			// we now have a list of messages to process...
 			pending := len(messageList)
 			if pending != 0 {
 
@@ -110,7 +103,7 @@ func main() {
 				log.Printf("INFO: queue %s contains no viable messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
 			}
 		} else {
-			log.Printf("INFO: queue %s contains no messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
+			log.Printf("INFO: queue %s reports no messages, sleeping for %d minutes", cfg.InQueueName, cfg.WaitTime)
 		}
 
 		time.Sleep(time.Duration(cfg.WaitTime) * time.Minute)

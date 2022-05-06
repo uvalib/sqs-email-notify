@@ -1,6 +1,6 @@
 github.com/aws/aws-sdk-go v1.43.44/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
-github.com/aws/aws-sdk-go v1.44.7 h1:LpCM8Fpw/L58vgdve6A+UqJr8dzo6Xj7HX7DIIGHg2A=
-github.com/aws/aws-sdk-go v1.44.7/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
+github.com/aws/aws-sdk-go v1.44.8 h1:Fc8lFiP97MjB/BFaeZ7ixAjkqrNoic/qvlRqqJb5cxY=
+github.com/aws/aws-sdk-go v1.44.8/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
@@ -13,8 +13,8 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-github.com/uvalib/virgo4-sqs-sdk/awssqs v0.0.0-20220505155921-6029ca5135e0 h1:GM9cdKQ6KEdD4zh5a7mZggrdmG6mKXAJtGY6UpQtTYU=
-github.com/uvalib/virgo4-sqs-sdk/awssqs v0.0.0-20220505155921-6029ca5135e0/go.mod h1:yrdZBQMJTysgPWKkl8AEDmKCDoRapb+lZmGlUSGoh7w=
+github.com/uvalib/virgo4-sqs-sdk/awssqs v0.0.0-20220506123141-05b54d1f6811 h1:gdpT8v4EG9SbsBO9dyY6yQxkby9/OYM2Dyf+xMRjYQ4=
+github.com/uvalib/virgo4-sqs-sdk/awssqs v0.0.0-20220506123141-05b54d1f6811/go.mod h1:yrdZBQMJTysgPWKkl8AEDmKCDoRapb+lZmGlUSGoh7w=
 golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd h1:O7DYs+zxREGLKzKoMQrtrEacpb0ZVXA5rIwylE2Xchk=
 golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd/go.mod h1:CfG3xpIq0wQ8r1q4Su4UZFWDARRcnwPjda9FqA0JpMk=
 golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
