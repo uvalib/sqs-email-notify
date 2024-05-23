@@ -20,9 +20,7 @@ func (mt MessageTuple) ToString() string {
 	return fmt.Sprintf("Identifier: %s (first sent: %s)", mt.id, ts)
 }
 
-//
 // main entry point
-//
 func main() {
 
 	log.Printf("===> %s service staring up (version: %s) <===", os.Args[0], Version())
